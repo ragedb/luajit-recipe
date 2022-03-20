@@ -84,7 +84,7 @@ class LuajitConan(ConanFile):
         self.copy("COPYRIGHT", dst="licenses", src=self._source_subfolder)
         if self.settings.compiler == 'Visual Studio':
             ljs = os.path.join(self._source_subfolder, "src")
-            inc = os.path.join(self.package_folder, "include", "luajit-2.0")
+            inc = os.path.join(self.package_folder, "include", "luajit-2.1")
             self.copy("lua.h", dst=inc, src=ljs)
             self.copy("lualib.h", dst=inc, src=ljs)
             self.copy("lauxlib.h", dst=inc, src=ljs)
@@ -102,6 +102,6 @@ class LuajitConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = ["lua51" if self.settings.compiler == "Visual Studio" else "luajit-5.1"]
-        self.cpp_info.includedirs = [os.path.join(self.package_folder, "include", "luajit-2.0")]
+        self.cpp_info.includedirs = [os.path.join(self.package_folder, "include", "luajit-2.1")]
         if self.settings.os == "Linux":
             self.cpp_info.system_libs.extend(["m", "dl"])
