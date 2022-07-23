@@ -1,5 +1,5 @@
 # luajit-recipe
-Sol2 Conan Recipe for RageDB
+LuaJIT Conan Recipe for RageDB
 
 
 Run:
