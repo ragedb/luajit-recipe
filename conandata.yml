@@ -2,3 +2,6 @@ sources:
   "2.1.0-beta3-2022-3-20":
     url: "https://github.com/ragedb/LuaJIT/releases/download/v2.1.0-beta3-2022-3-20/v2.1.0-beta3-2022-3-20.tar.gz"
     sha256: "89db4a91aa4e9912e5b0605958076292105acd7837b39eaa290ad64f3a7cd32e"
+  "2.1.0-beta3-2022-7-22":
+    url: "https://github.com/ragedb/LuaJIT/releases/download/v2.1.0-beta3-2022-7-22/v2.1.0-beta3-2022-7-22.tar.gz"
+    sha256: "9cf2f69008c5b6c475c2214d164d8e6316b4311dead50a0fa785923b0f499482"
