@@ -1,16 +1,16 @@
 from conan import ConanFile
 from conan.tools.scm import Version
-from conan.tools.files import get, chdir, replace_in_file, copy, rmdir
-from conan.tools.microsoft import is_msvc, MSBuildToolchain, VCVars
+from conan.tools.files import get, chdir, replace_in_file, copy, rmdir, export_conandata_patches, apply_conandata_patches
+from conan.tools.microsoft import is_msvc, MSBuildToolchain, VCVars, unix_path
 from conan.tools.layout import basic_layout
 from conan.tools.gnu import Autotools, AutotoolsToolchain
-from conan.tools.env import Environment
+from conan.tools.apple import is_apple_os
+from conan.tools.build import cross_building
 from conan.errors import ConanInvalidConfiguration
 import os
-import platform
 
 
-required_conan_version = ">=1.50.0"
+required_conan_version = ">=1.53.0"
 
 
 class LuajitConan(ConanFile):
@@ -24,30 +24,26 @@ class LuajitConan(ConanFile):
     options = {"shared": [True, False], "fPIC": [True, False]}
     default_options = {"shared": False, "fPIC": True}
 
+    def export_sources(self):
+        export_conandata_patches(self)
+
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
 
     def configure(self):
         if self.options.shared:
-            try:
-                del self.options.fPIC
-            except Exception:
-                pass
-        try:
-            del self.settings.compiler.libcxx
-        except Exception:
-            pass
-        try:
-            del self.settings.compiler.cppstd
-        except Exception:
-            pass
+            self.options.rm_safe("fPIC")
+        self.settings.rm_safe("compiler.libcxx")
+        self.settings.rm_safe("compiler.cppstd")
 
     def layout(self):
         basic_layout(self, src_folder="src")
 
     def validate(self):
-        if Version(self.version) < "2.1.0-beta1" and self.settings.os == "Macos" and self.settings.arch == "armv8":
+        if self.settings.os == "Macos" and self.settings.arch == "armv8" and cross_building(self):
+            raise ConanInvalidConfiguration(f"{self.ref} can not be cross-built to Mac M1. Please, try any version >=2.1")
+        elif Version(self.version) <= "2.1.0-beta1" and self.settings.os == "Macos" and self.settings.arch == "armv8":
             raise ConanInvalidConfiguration(f"{self.ref} is not supported by Mac M1. Please, try any version >=2.1")
 
     def source(self):
@@ -62,12 +58,6 @@ class LuajitConan(ConanFile):
         else:
             tc = AutotoolsToolchain(self)
             tc.generate()
-            if self.info.settings.os == "Macos":
-                env = Environment()
-                env.define("MACOSX_DEPLOYMENT_TARGET", self._macosx_deployment_target)
-                env.define("SYSTEM_VERSION_COMPAT", "1")
-                envvars = env.vars(self, scope="build")
-                envvars.save_script("conanbuildenv_macosx_deploy_target")
 
     def _patch_sources(self):
         if not is_msvc(self):
@@ -96,46 +86,57 @@ class LuajitConan(ConanFile):
 
     @property
     def _macosx_deployment_target(self):
-        # Per https://luajit.org/install.html: If MACOSX_DEPLOYMENT_TARGET
-        # is not set then it's forced to 10.4, which breaks compile on Mojave.
-        version = self.settings.get_safe("os.version")
-        if not version and platform.system() == "Darwin":
-            macversion = Version(platform.mac_ver()[0])
-            version = f"{macversion.major}.{macversion.minor}"
-        return version
+        return self.settings.get_safe("os.version")
+
+    @property
+    def _make_arguments(self):
+        args = [f"PREFIX={unix_path(self, self.package_folder)}"]
+        if is_apple_os(self) and self._macosx_deployment_target:
+            args.append(f"MACOSX_DEPLOYMENT_TARGET={self._macosx_deployment_target}")
+        return args
+
+    @property
+    def _luajit_include_folder(self):
+        luaversion = Version(self.version)
+        if luaversion.major == "2":
+            return f"luajit-{luaversion.major}.{luaversion.minor}"
+        return "luajit-2.1"
 
     def build(self):
+        apply_conandata_patches(self)
+        self._patch_sources()
         if is_msvc(self):
-            variant = '' if self.options.shared else 'static'
-            self.run("msvcbuild.bat %s" % variant, env="conanrun")
+            with chdir(self, os.path.join(self.source_folder, "src")):
+                variant = '' if self.options.shared else 'static'
+                self.run(f"msvcbuild.bat {variant}", env="conanbuild")
         else:
-            self._patch_sources()
             with chdir(self, self.source_folder):
                 autotools = Autotools(self)
-                autotools.make(args=[f"PREFIX={self.package_folder}"])
+                autotools.make(args=self._make_arguments)
 
     def package(self):
         copy(self, "COPYRIGHT", dst=os.path.join(self.package_folder, "licenses"), src=self.source_folder)
         src_folder = os.path.join(self.source_folder, "src")
-        include_folder = os.path.join(self.package_folder, "include")
+        include_folder = os.path.join(self.package_folder, "include", self._luajit_include_folder)
         if is_msvc(self):
-            copy(self, "lua.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
-            copy(self, "lualib.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
-            copy(self, "lauxlib.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
-            copy(self, "luaconf.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
-            copy(self, "lua.hpp", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
-            copy(self, "luajit.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
+            copy(self, "lua.h", src=src_folder, dst=include_folder)
+            copy(self, "lualib.h", src=src_folder, dst=include_folder)
+            copy(self, "lauxlib.h", src=src_folder, dst=include_folder)
+            copy(self, "luaconf.h", src=src_folder, dst=include_folder)
+            copy(self, "lua.hpp", src=src_folder, dst=include_folder)
+            copy(self, "luajit.h", src=src_folder, dst=include_folder)
             copy(self, "lua51.lib", src=src_folder, dst=os.path.join(self.package_folder, "lib"))
             copy(self, "lua51.dll", src=src_folder, dst=os.path.join(self.package_folder, "bin"))
         else:
             with chdir(self, self.source_folder):
                 autotools = Autotools(self)
-                autotools.install(args=[f"PREFIX={self.package_folder}"])
+                autotools.install(args=self._make_arguments + ["DESTDIR="])
             rmdir(self, os.path.join(self.package_folder, "lib", "pkgconfig"))
             rmdir(self, os.path.join(self.package_folder, "share"))
 
     def package_info(self):
         self.cpp_info.libs = ["lua51" if is_msvc(self) else "luajit-5.1"]
-        self.cpp_info.includedirs = [os.path.join("include", f"luajit-2.1")]
+        self.cpp_info.set_property("pkg_config_name", "luajit")
+        self.cpp_info.includedirs = [os.path.join("include", self._luajit_include_folder)]
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.cpp_info.system_libs.extend(["m", "dl"])
