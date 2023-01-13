@@ -119,12 +119,12 @@ class LuajitConan(ConanFile):
         src_folder = os.path.join(self.source_folder, "src")
         include_folder = os.path.join(self.package_folder, "include")
         if is_msvc(self):
-            copy(self, "lua.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.0"))
-            copy(self, "lualib.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.0"))
-            copy(self, "lauxlib.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.0"))
-            copy(self, "luaconf.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.0"))
-            copy(self, "lua.hpp", src=src_folder, dst=os.path.join(include_folder, "luajit-2.0"))
-            copy(self, "luajit.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.0"))
+            copy(self, "lua.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
+            copy(self, "lualib.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
+            copy(self, "lauxlib.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
+            copy(self, "luaconf.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
+            copy(self, "lua.hpp", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
+            copy(self, "luajit.h", src=src_folder, dst=os.path.join(include_folder, "luajit-2.1"))
             copy(self, "lua51.lib", src=src_folder, dst=os.path.join(self.package_folder, "lib"))
             copy(self, "lua51.dll", src=src_folder, dst=os.path.join(self.package_folder, "bin"))
         else:
@@ -136,7 +136,6 @@ class LuajitConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = ["lua51" if is_msvc(self) else "luajit-5.1"]
-        luaversion = Version(self.version)
-        self.cpp_info.includedirs = [os.path.join("include", f"luajit-{luaversion.major}.{luaversion.minor}")]
+        self.cpp_info.includedirs = [os.path.join("include", f"luajit-2.1")]
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.cpp_info.system_libs.extend(["m", "dl"])
