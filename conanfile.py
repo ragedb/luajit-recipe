@@ -20,6 +20,7 @@ class LuajitConan(ConanFile):
     homepage = "http://luajit.org"
     description = "LuaJIT is a Just-In-Time Compiler (JIT) for the Lua programming language."
     topics = ("lua", "jit")
+    package_type = "library"
     settings = "os", "arch", "compiler", "build_type"
     options = {"shared": [True, False], "fPIC": [True, False]}
     default_options = {"shared": False, "fPIC": True}
@@ -135,6 +136,8 @@ class LuajitConan(ConanFile):
             rmdir(self, os.path.join(self.package_folder, "share"))
 
     def package_info(self):
+        self.cpp_info.set_property("cmake_file_name", "luajit")
+        self.cpp_info.set_property("cmake_target_name", "luajit::luajit")
         self.cpp_info.libs = ["lua51" if is_msvc(self) else "luajit-5.1"]
         self.cpp_info.set_property("pkg_config_name", "luajit")
         self.cpp_info.includedirs = [os.path.join("include", self._luajit_include_folder)]
